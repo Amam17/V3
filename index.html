@@ -15,6 +15,7 @@
             --text-muted: #666666;
             --border: #e0e0e0;
             --success: #34a853;
+            --warning: #fbbc05;
         }
 
         body {
@@ -38,18 +39,11 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .container {
-            padding: 20px;
-        }
+        .container { padding: 20px; }
 
-        .view-section {
-            display: none;
-        }
-        .view-section.active {
-            display: block;
-        }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
 
-        /* Cards and Grids */
         .card-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -87,7 +81,6 @@
             color: var(--primary);
         }
 
-        /* Forms and Inputs */
         label {
             display: block;
             margin-bottom: 5px;
@@ -104,11 +97,13 @@
             border-radius: 8px;
             box-sizing: border-box;
             margin-bottom: 15px;
+            background: white;
         }
 
         input[type="file"] {
             margin-bottom: 15px;
             padding: 10px 0;
+            width: 100%;
         }
 
         button {
@@ -123,9 +118,8 @@
             font-weight: bold;
         }
 
-        button:disabled {
-            background-color: #ccc;
-        }
+        button:disabled { background-color: #ccc; }
+        button.action-btn { background-color: var(--success); }
 
         .status-msg {
             margin-top: 10px;
@@ -134,7 +128,6 @@
             text-align: center;
         }
 
-        /* Lists */
         .list-group {
             list-style: none;
             padding: 0;
@@ -148,11 +141,8 @@
             justify-content: space-between;
             align-items: center;
         }
-        .list-item:last-child {
-            border-bottom: none;
-        }
+        .list-item:last-child { border-bottom: none; }
 
-        /* Bottom Navigation */
         .bottom-nav {
             position: fixed;
             bottom: 0;
@@ -208,32 +198,39 @@
                     <div class="stat-value" id="stat-agents">0</div>
                 </div>
             </div>
-            <div class="card">
-                <h3 style="margin-top:0;">Recent Activity</h3>
-                <p style="color:var(--text-muted); font-size:14px;">Transaction history will appear here once scanning is active.</p>
-            </div>
         </div>
 
         <div id="view-import" class="view-section">
             <div class="card">
-                <h3 style="margin-top: 0;">Upload Huawei Vouchers</h3>
-                <p style="font-size: 14px; color: var(--text-muted);">Extract voucher codes from your Excel exports and add them to your available inventory.</p>
+                <h3 style="margin-top: 0;">1. Stock Inventory</h3>
+                <p style="font-size: 14px; color: var(--text-muted);">Upload your NEW vouchers export to add them to your available database stock.</p>
                 
                 <label>Voucher Price (₦):</label>
                 <input type="number" id="importPrice" value="300" />
 
-                <label>Select Excel File:</label>
+                <label>Select "New" Excel File:</label>
                 <input type="file" id="importFile" accept=".xlsx, .xls" />
 
-                <button id="importBtn" onclick="processExcelImport()">Import Database</button>
+                <button id="importBtn" onclick="processExcelImport()">Import to Inventory</button>
                 <div id="importStatus" class="status-msg"></div>
             </div>
         </div>
 
-        <div id="view-scanner" class="view-section">
+        <div id="view-sync" class="view-section">
             <div class="card">
-                <h3 style="margin-top: 0;">Scan & Update Status</h3>
-                <p style="font-size: 14px; color: var(--text-muted);">Module 3 will activate your device camera to scan and update voucher statuses in real-time.</p>
+                <h3 style="margin-top: 0;">2. Sync Sales & Used</h3>
+                <p style="font-size: 14px; color: var(--text-muted);">Select the agent, then upload the USED vouchers export. The system will mark them as sold and calculate today's revenue.</p>
+                
+                <label>Assign Sales To Agent:</label>
+                <select id="agentSelectDropdown">
+                    <option value="">-- Select an Agent --</option>
+                </select>
+
+                <label>Select "Used" Excel File:</label>
+                <input type="file" id="usedFile" accept=".xlsx, .xls" />
+
+                <button id="syncBtn" class="action-btn" onclick="processUsedImport()">Sync Sales Data</button>
+                <div id="syncStatus" class="status-msg"></div>
             </div>
         </div>
 
@@ -241,28 +238,26 @@
             <div class="card">
                 <h3 style="margin-top: 0;">Add New Agent</h3>
                 <label>Agent Name:</label>
-                <input type="text" id="agentName" placeholder="e.g. John Doe" />
+                <input type="text" id="agentName" placeholder="e.g. Mustapha" />
                 <button onclick="addAgent()">Save Agent</button>
                 <div id="agentStatus" class="status-msg"></div>
             </div>
 
             <div class="card">
                 <h3 style="margin-top: 0;">Agent Roster</h3>
-                <ul class="list-group" id="agentList">
-                    </ul>
+                <ul class="list-group" id="agentList"></ul>
             </div>
         </div>
     </div>
 
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchView('dashboard', 'Dashboard', this)">Dashboard</div>
-        <div class="nav-item" onclick="switchView('import', 'Inventory Import', this)">Import</div>
-        <div class="nav-item" onclick="switchView('scanner', 'Scan Code', this)">Scan</div>
+        <div class="nav-item" onclick="switchView('import', 'Stock Inventory', this)">Stock</div>
+        <div class="nav-item" onclick="switchView('sync', 'Sync Sales', this)">Sync</div>
         <div class="nav-item" onclick="switchView('agents', 'Team & Agents', this)">Agents</div>
     </div>
 
     <script>
-        // --- 1. INITIALIZE DATABASE ---
         const db = new Dexie("MVMP_Database");
         
         db.version(1).stores({
@@ -271,58 +266,58 @@
             transactions: '++id, passcode, amount, agentId, date'
         });
 
-        // Start database and refresh UI
         db.open().then(() => {
-            console.log("Database online.");
             refreshDashboard();
             loadAgents();
         });
 
-        // --- 2. NAVIGATION LOGIC ---
         function switchView(viewId, headerTitle, navElement) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById('view-' + viewId).classList.add('active');
             document.getElementById('appHeader').innerText = headerTitle;
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             navElement.classList.add('active');
+            
+            if(viewId === 'sync') populateAgentDropdown();
         }
 
-        // --- 3. DASHBOARD UPDATES ---
         async function refreshDashboard() {
             const availableCount = await db.vouchers.where('status').equals('Available').count();
             const inUseCount = await db.vouchers.where('status').equals('In-Use').count();
             const agentCount = await db.agents.count();
 
+            // Calculate Today's Revenue
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const startOfToday = today.getTime();
+
+            const todaysTransactions = await db.transactions
+                .where('date').aboveOrEqual(startOfToday)
+                .toArray();
+
+            let todayRevenue = 0;
+            todaysTransactions.forEach(tx => todayRevenue += tx.amount);
+
             document.getElementById('stat-available').innerText = availableCount;
             document.getElementById('stat-inuse').innerText = inUseCount;
             document.getElementById('stat-agents').innerText = agentCount;
+            document.getElementById('stat-revenue-today').innerText = "₦" + todayRevenue.toLocaleString();
         }
 
-        // --- 4. AGENT MANAGEMENT ---
         async function addAgent() {
             const nameInput = document.getElementById('agentName');
             const statusDiv = document.getElementById('agentStatus');
             const name = nameInput.value.trim();
 
-            if (!name) {
-                statusDiv.innerText = "Please enter a name.";
-                statusDiv.style.color = "red";
-                return;
-            }
+            if (!name) return;
 
-            try {
-                await db.agents.add({ name: name, totalSales: 0 });
-                nameInput.value = "";
-                statusDiv.innerText = "Agent added successfully!";
-                statusDiv.style.color = "var(--success)";
-                loadAgents();
-                refreshDashboard();
-                setTimeout(() => statusDiv.innerText = "", 3000);
-            } catch (error) {
-                console.error(error);
-                statusDiv.innerText = "Error saving agent.";
-                statusDiv.style.color = "red";
-            }
+            await db.agents.add({ name: name, totalSales: 0 });
+            nameInput.value = "";
+            statusDiv.innerText = "Agent saved!";
+            statusDiv.style.color = "var(--success)";
+            loadAgents();
+            refreshDashboard();
+            setTimeout(() => statusDiv.innerText = "", 3000);
         }
 
         async function loadAgents() {
@@ -330,100 +325,141 @@
             const agents = await db.agents.toArray();
             
             agentList.innerHTML = "";
-            if (agents.length === 0) {
-                agentList.innerHTML = "<p style='color: #666; font-size: 14px; text-align:center;'>No agents found.</p>";
-                return;
-            }
-
             agents.forEach(agent => {
                 const li = document.createElement('li');
                 li.className = 'list-item';
                 li.innerHTML = `
                     <span style="font-weight:bold;">${agent.name}</span>
-                    <span style="color:var(--primary); font-weight:bold;">Sales: ₦${agent.totalSales}</span>
+                    <span style="color:var(--primary); font-weight:bold;">Sales: ₦${agent.totalSales.toLocaleString()}</span>
                 `;
                 agentList.appendChild(li);
             });
         }
 
-        // --- 5. EXCEL IMPORT LOGIC (SheetJS) ---
+        async function populateAgentDropdown() {
+            const select = document.getElementById('agentSelectDropdown');
+            const agents = await db.agents.toArray();
+            
+            select.innerHTML = '<option value="">-- Select an Agent --</option>';
+            agents.forEach(agent => {
+                const option = document.createElement('option');
+                option.value = agent.id;
+                option.text = agent.name;
+                select.appendChild(option);
+            });
+        }
+
         async function processExcelImport() {
             const fileInput = document.getElementById('importFile');
-            const priceInput = document.getElementById('importPrice');
+            const price = parseFloat(document.getElementById('importPrice').value) || 0;
             const statusDiv = document.getElementById('importStatus');
-            const btn = document.getElementById('importBtn');
-
-            if (fileInput.files.length === 0) {
-                statusDiv.innerText = "Please select an Excel file first.";
-                statusDiv.style.color = "red";
-                return;
-            }
-
-            const price = parseFloat(priceInput.value) || 0;
-            const file = fileInput.files[0];
             
-            statusDiv.innerText = "Reading file...";
-            statusDiv.style.color = "var(--text-main)";
-            btn.disabled = true;
+            if (fileInput.files.length === 0) return;
+            statusDiv.innerText = "Processing New Inventory...";
 
             const reader = new FileReader();
             reader.onload = async function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Assume data is in the first sheet
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    // Convert sheet to JSON row objects
-                    const json = XLSX.utils.sheet_to_json(worksheet);
-                    let importedCount = 0;
-
-                    for (let row of json) {
-                        // Huawei formats usually label passcodes as "Password" or "Account"
-                        // We will check common column names to find the code
-                        const code = row['Password'] || row['Passcode'] || row['Account'] || row['Code'] || row['PIN'];
-                        
-                        if (code) {
-                            const codeString = String(code).trim();
-                            
-                            // Check if voucher already exists to prevent duplicates
-                            const exists = await db.vouchers.get(codeString);
-                            if (!exists) {
-                                await db.vouchers.add({
-                                    passcode: codeString,
-                                    price: price,
-                                    status: 'Available',
-                                    agentId: null,
-                                    importedAt: new Date().getTime(),
-                                    usedAt: null
-                                });
-                                importedCount++;
-                            }
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                
+                let count = 0;
+                for (let row of json) {
+                    const code = row['Password'] || row['Account'] || row['PIN'];
+                    if (code) {
+                        const codeString = String(code).trim();
+                        const exists = await db.vouchers.get(codeString);
+                        if (!exists) {
+                            await db.vouchers.add({
+                                passcode: codeString,
+                                price: price,
+                                status: 'Available',
+                                agentId: null,
+                                importedAt: new Date().getTime(),
+                                usedAt: null
+                            });
+                            count++;
                         }
                     }
-
-                    statusDiv.innerText = `Success! Imported ${importedCount} new vouchers to database.`;
-                    statusDiv.style.color = "var(--success)";
-                    refreshDashboard();
-                } catch (error) {
-                    console.error(error);
-                    statusDiv.innerText = "Failed to parse Excel data.";
-                    statusDiv.style.color = "red";
                 }
-                
-                btn.disabled = false;
-                fileInput.value = ""; // Clear input
+                statusDiv.innerText = `Added ${count} new vouchers.`;
+                statusDiv.style.color = "var(--success)";
+                fileInput.value = "";
+                refreshDashboard();
             };
-            
-            reader.onerror = function() {
-                statusDiv.innerText = "Error reading file.";
-                statusDiv.style.color = "red";
-                btn.disabled = false;
-            };
+            reader.readAsArrayBuffer(fileInput.files[0]);
+        }
 
-            reader.readAsArrayBuffer(file);
+        async function processUsedImport() {
+            const fileInput = document.getElementById('usedFile');
+            const agentId = parseInt(document.getElementById('agentSelectDropdown').value);
+            const statusDiv = document.getElementById('syncStatus');
+            
+            if (!agentId) {
+                statusDiv.innerText = "Error: Please select an Agent first.";
+                statusDiv.style.color = "red";
+                return;
+            }
+            if (fileInput.files.length === 0) return;
+            
+            statusDiv.innerText = "Syncing Sales Data...";
+            statusDiv.style.color = "var(--text-main)";
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                
+                let updateCount = 0;
+                let revenueAdded = 0;
+                const syncTime = new Date().getTime();
+
+                for (let row of json) {
+                    const code = row['Password'] || row['Account'] || row['PIN'];
+                    if (code) {
+                        const codeString = String(code).trim();
+                        const voucher = await db.vouchers.get(codeString);
+                        
+                        // If we have the voucher in our system and it is currently 'Available'
+                        if (voucher && voucher.status === 'Available') {
+                            
+                            // 1. Mark as In-Use
+                            await db.vouchers.update(codeString, {
+                                status: 'In-Use',
+                                agentId: agentId,
+                                usedAt: syncTime
+                            });
+
+                            // 2. Log Transaction for Dashboard Revenue
+                            await db.transactions.add({
+                                passcode: codeString,
+                                amount: voucher.price,
+                                agentId: agentId,
+                                date: syncTime
+                            });
+
+                            revenueAdded += voucher.price;
+                            updateCount++;
+                        }
+                    }
+                }
+
+                // 3. Update the specific Agent's total sales
+                if (updateCount > 0) {
+                    const agent = await db.agents.get(agentId);
+                    await db.agents.update(agentId, {
+                        totalSales: agent.totalSales + revenueAdded
+                    });
+                }
+
+                statusDiv.innerText = `Successfully synced ${updateCount} sales to Agent!`;
+                statusDiv.style.color = "var(--success)";
+                fileInput.value = "";
+                refreshDashboard();
+                loadAgents();
+            };
+            reader.readAsArrayBuffer(fileInput.files[0]);
         }
     </script>
 </body>
