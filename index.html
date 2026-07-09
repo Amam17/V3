@@ -2,249 +2,434 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCR Voucher Test | Filtered</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Megacore Voucher Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
     <style>
+        :root {
+            --primary: #1a73e8;
+            --background: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #e0e0e0;
+            --success: #34a853;
+            --danger: #ea4335;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f4f6f9;
-            color: #333;
-            padding: 20px;
+            background-color: var(--background);
+            color: var(--text-main);
             margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            padding: 0;
+            padding-bottom: 70px;
         }
-        .container {
-            max-width: 500px;
-            width: 100%;
-            background: white;
-            padding: 30px;
+
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 16px 20px;
+            font-size: 20px;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .container { padding: 20px; }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            box-sizing: border-box;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
         }
-        h2 { margin-top: 0; color: #1a73e8; text-align: center; }
-        p { color: #666; font-size: 14px; text-align: center; }
-        .file-input {
-            margin: 20px 0;
+
+        .stat-card {
+            background: var(--card-bg);
             padding: 15px;
-            border: 2px dashed #1a73e8;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .stat-title {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        input[type="number"], input[type="text"], select {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid var(--border);
             border-radius: 8px;
-            background: #f8fafd;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+            background: white;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            border-radius: 8px;
             cursor: pointer;
             width: 100%;
-            box-sizing: border-box;
-        }
-        #status {
-            margin-top: 15px;
             font-weight: bold;
-            color: #2b2b2b;
+        }
+
+        button.success-btn { background-color: var(--success); }
+
+        .status-msg {
+            margin-top: 10px;
+            font-size: 14px;
+            font-weight: bold;
             text-align: center;
-            min-height: 20px;
-            word-break: break-word;
         }
-        .canvas-container {
+
+        .list-group { list-style: none; padding: 0; margin: 0; }
+        .list-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
             display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-top: 20px;
+            justify-content: space-between;
+            align-items: center;
         }
-        .canvas-box {
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            overflow: hidden;
-            background: #eee;
+        .list-item:last-child { border-bottom: none; }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0; left: 0; width: 100%;
+            background: var(--card-bg);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            border-top: 1px solid var(--border);
+            z-index: 1000;
         }
-        .canvas-label {
-            background: #333;
-            color: white;
-            padding: 5px;
+
+        .nav-item {
+            text-align: center;
+            color: var(--text-muted);
             font-size: 12px;
             font-weight: bold;
-            text-align: center;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
         }
-        canvas {
-            display: block;
-            max-width: 100%;
-            height: auto;
-        }
-        .result-box {
-            margin-top: 20px;
-        }
-        textarea {
-            width: 100%;
-            height: 150px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 14px;
-            box-sizing: border-box;
-            resize: vertical;
+
+        .nav-item.active {
+            color: var(--primary);
+            background-color: rgba(26, 115, 232, 0.1);
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Voucher OCR Tester</h2>
-    <p>Upload a Voucher Image to test the High-Contrast AI filter.</p>
-    
-    <input type="file" id="fileInput" class="file-input" accept=".jpg, .jpeg, .png, .xlsx" />
-    
-    <div id="status">Waiting for file...</div>
+    <header id="appHeader">Megacore Dashboard</header>
 
-    <div class="canvas-container">
-        <div class="canvas-box">
-            <div class="canvas-label">Original Image</div>
-            <canvas id="originalCanvas"></canvas>
+    <div class="container">
+        
+        <div id="view-dashboard" class="view-section active">
+            <div class="card-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Today's Revenue</div>
+                    <div class="stat-value" id="stat-revenue-today">₦0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Master Stock (Available)</div>
+                    <div class="stat-value" id="stat-master-stock">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Stock with Agents</div>
+                    <div class="stat-value" id="stat-agent-stock">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Total Sales (All Time)</div>
+                    <div class="stat-value" id="stat-total-sales">₦0</div>
+                </div>
+            </div>
         </div>
-        <div class="canvas-box">
-            <div class="canvas-label">What the AI Sees (High Contrast)</div>
-            <canvas id="filteredCanvas"></canvas>
+
+        <div id="view-stock" class="view-section">
+            <div class="card">
+                <h3 style="margin-top: 0;">Add Printed Vouchers to Master Stock</h3>
+                <p style="font-size: 14px; color: var(--text-muted);">Enter the number of vouchers you just printed to add them to your main inventory.</p>
+                
+                <label>Voucher Price (₦):</label>
+                <input type="number" id="addStockPrice" value="300" />
+
+                <label>Quantity Printed:</label>
+                <input type="number" id="addStockQty" placeholder="e.g. 50" />
+
+                <button onclick="addMasterStock()">Add to Master Stock</button>
+                <div id="stockStatus" class="status-msg"></div>
+            </div>
+        </div>
+
+        <div id="view-operations" class="view-section">
+            <div class="card">
+                <h3 style="margin-top: 0;">1. Assign Stock to Agent</h3>
+                <p style="font-size: 14px; color: var(--text-muted);">Take vouchers from your Master Stock and hand them to an agent.</p>
+                
+                <label>Select Agent:</label>
+                <select id="assignAgentSelect"></select>
+
+                <label>Quantity to Give:</label>
+                <input type="number" id="assignQty" placeholder="e.g. 20" />
+
+                <button onclick="assignToAgent()">Give Vouchers to Agent</button>
+                <div id="assignStatus" class="status-msg"></div>
+            </div>
+
+            <div class="card" style="border-left: 4px solid var(--success);">
+                <h3 style="margin-top: 0;">2. Record Agent Sales</h3>
+                <p style="font-size: 14px; color: var(--text-muted);">At the end of the shift, enter how many vouchers the agent actually sold.</p>
+                
+                <label>Select Agent:</label>
+                <select id="salesAgentSelect"></select>
+
+                <label>Quantity Sold:</label>
+                <input type="number" id="salesQty" placeholder="e.g. 15" />
+
+                <label>Voucher Price Sold At (₦):</label>
+                <input type="number" id="salesPrice" value="300" />
+
+                <button class="success-btn" onclick="recordSales()">Record Sales & Calculate Revenue</button>
+                <div id="salesStatus" class="status-msg"></div>
+            </div>
+        </div>
+
+        <div id="view-agents" class="view-section">
+            <div class="card">
+                <h3 style="margin-top: 0;">Add New Agent</h3>
+                <label>Agent Name:</label>
+                <input type="text" id="agentName" placeholder="e.g. Ahmad" />
+                <button onclick="createAgent()">Save Agent</button>
+                <div id="agentCreateStatus" class="status-msg"></div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-top: 0;">Agent Status</h3>
+                <ul class="list-group" id="agentList"></ul>
+            </div>
         </div>
     </div>
 
-    <div class="result-box">
-        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Raw Text Extracted:</label>
-        <textarea id="resultText" placeholder="The AI's reading will appear here..."></textarea>
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchView('dashboard', 'Megacore Dashboard', this)">Dashboard</div>
+        <div class="nav-item" onclick="switchView('stock', 'Master Stock', this)">Stock</div>
+        <div class="nav-item" onclick="switchView('operations', 'Agent Operations', this)">Operations</div>
+        <div class="nav-item" onclick="switchView('agents', 'Team', this)">Team</div>
     </div>
-</div>
 
-<script>
-    const fileInput = document.getElementById('fileInput');
-    const statusDiv = document.getElementById('status');
-    const originalCanvas = document.getElementById('originalCanvas');
-    const filteredCanvas = document.getElementById('filteredCanvas');
-    const resultText = document.getElementById('resultText');
+    <script>
+        // Database Setup
+        const db = new Dexie("MVMP_Tracker");
+        db.version(1).stores({
+            system: 'id', 
+            agents: '++id, name, stockHeld, totalSalesRevenue',
+            transactions: '++id, agentId, quantitySold, amountGenerated, date'
+        });
 
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        db.on('populate', async () => {
+            await db.system.add({ id: 'master', totalStock: 0 });
+        });
 
-        resultText.value = "";
-        
-        const fileName = file.name.toLowerCase();
+        db.open().then(() => {
+            refreshAll();
+        });
 
-        if (fileName.endsWith('.xlsx')) {
-            statusDiv.innerText = "Extracting first image from Excel...";
-            try {
-                const zip = await JSZip.loadAsync(file);
-                const mediaFolder = zip.folder("xl/media");
-                
-                if (!mediaFolder) {
-                    statusDiv.innerText = "Error: No media found in Excel.";
-                    return;
-                }
-
-                const images = Object.keys(mediaFolder.files).filter(name => name.match(/\.(png|jpe?g)$/i));
-                if (images.length === 0) {
-                    statusDiv.innerText = "Error: No images found in Excel.";
-                    return;
-                }
-
-                const firstImageFile = mediaFolder.files[images[0]];
-                const blob = await firstImageFile.async("blob");
-                processImageForOCR(blob);
-
-            } catch (err) {
-                console.error(err);
-                statusDiv.innerText = "Failed to read Excel file.";
-            }
-        } else if (fileName.match(/\.(png|jpe?g)$/i)) {
-            processImageForOCR(file);
-        } else {
-            statusDiv.innerText = "Unsupported file type.";
+        function switchView(viewId, headerTitle, navElement) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            document.getElementById('appHeader').innerText = headerTitle;
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            navElement.classList.add('active');
+            
+            if(viewId === 'operations') updateDropdowns();
         }
-    });
 
-    function processImageForOCR(imageBlob) {
-        statusDiv.innerText = "Applying High-Contrast Filter...";
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(imageBlob);
+        async function refreshAll() {
+            const sys = await db.system.get('master');
+            const masterStock = sys ? sys.totalStock : 0;
 
-        img.onload = () => {
-            URL.revokeObjectURL(objectUrl);
-            
-            // Draw original
-            originalCanvas.width = img.width;
-            originalCanvas.height = img.height;
-            const origCtx = originalCanvas.getContext('2d');
-            origCtx.drawImage(img, 0, 0);
+            const agents = await db.agents.toArray();
+            let agentStock = 0;
+            let allTimeSales = 0;
+            agents.forEach(a => {
+                agentStock += a.stockHeld;
+                allTimeSales += a.totalSalesRevenue;
+            });
 
-            // Apply Black & White Filter
-            filteredCanvas.width = img.width;
-            filteredCanvas.height = img.height;
-            const filtCtx = filteredCanvas.getContext('2d');
-            filtCtx.drawImage(img, 0, 0);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const todaysTransactions = await db.transactions.where('date').aboveOrEqual(today.getTime()).toArray();
+            let todayRevenue = 0;
+            todaysTransactions.forEach(tx => todayRevenue += tx.amountGenerated);
 
-            const imageData = filtCtx.getImageData(0, 0, filteredCanvas.width, filteredCanvas.height);
-            const data = imageData.data;
+            document.getElementById('stat-master-stock').innerText = masterStock;
+            document.getElementById('stat-agent-stock').innerText = agentStock;
+            document.getElementById('stat-revenue-today').innerText = "₦" + todayRevenue.toLocaleString();
+            document.getElementById('stat-total-sales').innerText = "₦" + allTimeSales.toLocaleString();
 
-            // Loop through every pixel to strip color and maximize contrast
-            const threshold = 130; // Anything brighter than this becomes white, darker becomes black
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i+1];
-                const b = data[i+2];
-                
-                // Calculate pixel brightness
-                const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
-                
-                // Force to pure black or pure white
-                const color = brightness > threshold ? 255 : 0;
-                
-                data[i] = color;     // Red
-                data[i+1] = color;   // Green
-                data[i+2] = color;   // Blue
-            }
-            
-            filtCtx.putImageData(imageData, 0, 0);
-
-            // Run Tesseract on the filtered canvas
-            runTesseract(filteredCanvas);
-        };
-
-        img.onerror = () => {
-            statusDiv.innerText = "Failed to load image.";
-        };
-
-        img.src = objectUrl;
-    }
-
-    async function runTesseract(canvasElement) {
-        statusDiv.innerText = "Connecting to AI Engine...";
-        
-        try {
-            const imageDataUrl = canvasElement.toDataURL("image/jpeg", 1.0);
-
-            const { data: { text } } = await Tesseract.recognize(
-                imageDataUrl,
-                'eng',
-                {
-                    logger: m => {
-                        if (m.status === "recognizing text") {
-                            const percent = Math.round(m.progress * 100);
-                            statusDiv.innerText = `Scanning text... ${percent}%`;
-                        } else {
-                            statusDiv.innerText = "AI Status: " + m.status;
-                        }
-                    }
-                }
-            );
-            
-            resultText.value = text;
-            statusDiv.innerText = "Scan Complete!";
-
-        } catch (error) {
-            console.error(error);
-            statusDiv.innerText = "OCR Engine Failed: " + error.message;
+            updateAgentList(agents);
         }
-    }
-</script>
 
+        async function addMasterStock() {
+            const qty = parseInt(document.getElementById('addStockQty').value);
+            const status = document.getElementById('stockStatus');
+
+            if (!qty || qty <= 0) {
+                status.innerText = "Enter a valid quantity.";
+                status.style.color = "red";
+                return;
+            }
+
+            const sys = await db.system.get('master');
+            await db.system.put({ id: 'master', totalStock: sys.totalStock + qty });
+
+            document.getElementById('addStockQty').value = '';
+            status.innerText = `Successfully added ${qty} vouchers to Master Stock!`;
+            status.style.color = "var(--success)";
+            setTimeout(() => status.innerText = "", 3000);
+            refreshAll();
+        }
+
+        async function createAgent() {
+            const name = document.getElementById('agentName').value.trim();
+            const status = document.getElementById('agentCreateStatus');
+            if (!name) return;
+
+            await db.agents.add({ name: name, stockHeld: 0, totalSalesRevenue: 0 });
+            document.getElementById('agentName').value = '';
+            status.innerText = "Agent created!";
+            status.style.color = "var(--success)";
+            setTimeout(() => status.innerText = "", 3000);
+            refreshAll();
+        }
+
+        function updateAgentList(agents) {
+            const list = document.getElementById('agentList');
+            list.innerHTML = "";
+            agents.forEach(a => {
+                list.innerHTML += `
+                    <li class="list-item">
+                        <div>
+                            <div style="font-weight:bold; font-size:16px;">${a.name}</div>
+                            <div style="font-size:12px; color:var(--text-muted);">Holding: ${a.stockHeld} vouchers</div>
+                        </div>
+                        <div style="color:var(--primary); font-weight:bold;">₦${a.totalSalesRevenue.toLocaleString()}</div>
+                    </li>
+                `;
+            });
+        }
+
+        async function updateDropdowns() {
+            const agents = await db.agents.toArray();
+            let options = '<option value="">-- Select Agent --</option>';
+            agents.forEach(a => {
+                options += `<option value="${a.id}">${a.name} (Holds ${a.stockHeld})</option>`;
+            });
+            document.getElementById('assignAgentSelect').innerHTML = options;
+            document.getElementById('salesAgentSelect').innerHTML = options;
+        }
+
+        async function assignToAgent() {
+            const agentId = parseInt(document.getElementById('assignAgentSelect').value);
+            const qty = parseInt(document.getElementById('assignQty').value);
+            const status = document.getElementById('assignStatus');
+
+            if (!agentId || !qty || qty <= 0) return;
+
+            const sys = await db.system.get('master');
+            if (sys.totalStock < qty) {
+                status.innerText = `Error: You only have ${sys.totalStock} in Master Stock.`;
+                status.style.color = "red";
+                return;
+            }
+
+            await db.system.put({ id: 'master', totalStock: sys.totalStock - qty });
+            const agent = await db.agents.get(agentId);
+            await db.agents.update(agentId, { stockHeld: agent.stockHeld + qty });
+
+            document.getElementById('assignQty').value = '';
+            status.innerText = `Assigned ${qty} vouchers to agent!`;
+            status.style.color = "var(--success)";
+            setTimeout(() => status.innerText = "", 3000);
+            updateDropdowns();
+            refreshAll();
+        }
+
+        async function recordSales() {
+            const agentId = parseInt(document.getElementById('salesAgentSelect').value);
+            const qtySold = parseInt(document.getElementById('salesQty').value);
+            const price = parseInt(document.getElementById('salesPrice').value);
+            const status = document.getElementById('salesStatus');
+
+            if (!agentId || !qtySold || qtySold <= 0 || !price) return;
+
+            const agent = await db.agents.get(agentId);
+            if (agent.stockHeld < qtySold) {
+                status.innerText = `Error: Agent only has ${agent.stockHeld} vouchers.`;
+                status.style.color = "red";
+                return;
+            }
+
+            const revenue = qtySold * price;
+
+            await db.agents.update(agentId, { 
+                stockHeld: agent.stockHeld - qtySold,
+                totalSalesRevenue: agent.totalSalesRevenue + revenue
+            });
+
+            await db.transactions.add({
+                agentId: agentId,
+                quantitySold: qtySold,
+                amountGenerated: revenue,
+                date: new Date().getTime()
+            });
+
+            document.getElementById('salesQty').value = '';
+            status.innerText = `Recorded ${qtySold} sales. Generated ₦${revenue.toLocaleString()}!`;
+            status.style.color = "var(--success)";
+            setTimeout(() => status.innerText = "", 4000);
+            updateDropdowns();
+            refreshAll();
+        }
+    </script>
 </body>
 </html>
