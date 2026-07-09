@@ -44,6 +44,7 @@
             color: #2b2b2b;
             text-align: center;
             min-height: 20px;
+            word-break: break-word;
         }
         .preview-box {
             margin-top: 20px;
@@ -135,7 +136,6 @@
                 statusDiv.innerText = "Failed to read Excel file.";
             }
         } else if (fileName.match(/\.(png|jpe?g)$/i)) {
-            // It is directly an image
             processImageForOCR(file);
         } else {
             statusDiv.innerText = "Unsupported file type.";
@@ -150,12 +150,10 @@
         img.onload = () => {
             URL.revokeObjectURL(objectUrl);
             
-            // Draw original image to canvas
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
 
-            // Start OCR
             runTesseract(canvas);
         };
 
@@ -167,38 +165,33 @@
     }
 
     async function runTesseract(canvasElement) {
-        statusDiv.innerText = "Initializing Tesseract AI Engine (this may take a moment)...";
+        statusDiv.innerText = "Connecting to AI Engine (downloading language file)...";
         
         try {
-            // Convert canvas to a Data URL to pass to Tesseract
             const imageDataUrl = canvasElement.toDataURL("image/jpeg", 1.0);
 
-            const worker = await Tesseract.createWorker({
-                logger: m => {
-                    // Update progress live
-                    if (m.status === "recognizing text") {
-                        const percent = Math.round(m.progress * 100);
-                        statusDiv.innerText = `Scanning text... ${percent}%`;
-                    } else {
-                        statusDiv.innerText = m.status;
+            // Using the simplified v5 syntax to prevent worker freezing
+            const { data: { text } } = await Tesseract.recognize(
+                imageDataUrl,
+                'eng',
+                {
+                    logger: m => {
+                        if (m.status === "recognizing text") {
+                            const percent = Math.round(m.progress * 100);
+                            statusDiv.innerText = `Scanning text... ${percent}%`;
+                        } else {
+                            statusDiv.innerText = "AI Status: " + m.status;
+                        }
                     }
                 }
-            });
-            
-            await worker.loadLanguage('eng');
-            await worker.initialize('eng');
-            
-            statusDiv.innerText = "Scanning text... 0%";
-            const { data: { text } } = await worker.recognize(imageDataUrl);
+            );
             
             resultText.value = text;
             statusDiv.innerText = "Scan Complete!";
-            
-            await worker.terminate();
 
         } catch (error) {
             console.error(error);
-            statusDiv.innerText = "OCR Engine Failed.";
+            statusDiv.innerText = "OCR Engine Failed: " + error.message;
         }
     }
 </script>
