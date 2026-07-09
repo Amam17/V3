@@ -2,465 +2,207 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MVMP | MegaNet Voucher Manager Pro</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Voucher Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        :root {
-            --primary: #1a73e8;
-            --background: #f4f6f9;
-            --card-bg: #ffffff;
-            --text-main: #333333;
-            --text-muted: #666666;
-            --border: #e0e0e0;
-            --success: #34a853;
-            --warning: #fbbc05;
-        }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--background);
-            color: var(--text-main);
-            margin: 0;
-            padding: 0;
-            padding-bottom: 70px;
-        }
-
-        header {
-            background-color: var(--primary);
-            color: white;
-            padding: 16px 20px;
-            font-size: 20px;
-            font-weight: bold;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .container { padding: 20px; }
-
-        .view-section { display: none; }
-        .view-section.active { display: block; }
-
-        .card-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .card {
-            background: var(--card-bg);
+            background-color: #f4f6f9;
+            color: #333;
             padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            text-align: center;
-        }
-
-        .stat-title {
-            font-size: 12px;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-
-        .stat-value {
-            font-size: 22px;
-            font-weight: bold;
-            color: var(--primary);
-        }
-
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-            font-size: 14px;
-            color: var(--text-muted);
-        }
-
-        input[type="text"], input[type="number"], select {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            box-sizing: border-box;
-            margin-bottom: 15px;
-            background: white;
-        }
-
-        input[type="file"] {
-            margin-bottom: 15px;
-            padding: 10px 0;
-            width: 100%;
-        }
-
-        button {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 14px 20px;
-            font-size: 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            font-weight: bold;
-        }
-
-        button:disabled { background-color: #ccc; }
-        button.action-btn { background-color: var(--success); }
-
-        .status-msg {
-            margin-top: 10px;
-            font-size: 14px;
-            font-weight: bold;
-            text-align: center;
-        }
-
-        .list-group {
-            list-style: none;
-            padding: 0;
             margin: 0;
-        }
-
-        .list-item {
-            padding: 15px;
-            border-bottom: 1px solid var(--border);
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             align-items: center;
         }
-        .list-item:last-child { border-bottom: none; }
-
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
+        .container {
+            max-width: 500px;
             width: 100%;
-            background: var(--card-bg);
-            display: flex;
-            justify-content: space-around;
-            padding: 12px 0;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-            border-top: 1px solid var(--border);
-            z-index: 1000;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-sizing: border-box;
         }
-
-        .nav-item {
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 12px;
-            font-weight: bold;
-            cursor: pointer;
-            padding: 8px 12px;
+        h2 { margin-top: 0; color: #1a73e8; text-align: center; }
+        p { color: #666; font-size: 14px; text-align: center; }
+        .file-input {
+            margin: 20px 0;
+            padding: 15px;
+            border: 2px dashed #1a73e8;
             border-radius: 8px;
+            background: #f8fafd;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
         }
-
-        .nav-item.active {
-            color: var(--primary);
-            background-color: rgba(26, 115, 232, 0.1);
+        #status {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #2b2b2b;
+            text-align: center;
+            min-height: 20px;
+        }
+        .preview-box {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #eee;
+        }
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+        .result-box {
+            margin-top: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: vertical;
         }
     </style>
 </head>
 <body>
 
-    <header id="appHeader">Dashboard</header>
+<div class="container">
+    <h2>Voucher OCR Tester</h2>
+    <p>Upload a Voucher Image (.jpg/.png) or an Excel File to test the AI text reader.</p>
+    
+    <input type="file" id="fileInput" class="file-input" accept=".jpg, .jpeg, .png, .xlsx" />
+    
+    <div id="status">Waiting for file...</div>
 
-    <div class="container">
-        
-        <div id="view-dashboard" class="view-section active">
-            <div class="card-grid">
-                <div class="stat-card">
-                    <div class="stat-title">Today's Revenue</div>
-                    <div class="stat-value" id="stat-revenue-today">₦0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Available Vouchers</div>
-                    <div class="stat-value" id="stat-available">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">In-Use</div>
-                    <div class="stat-value" id="stat-inuse">0</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-title">Active Agents</div>
-                    <div class="stat-value" id="stat-agents">0</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="view-import" class="view-section">
-            <div class="card">
-                <h3 style="margin-top: 0;">1. Stock Inventory</h3>
-                <p style="font-size: 14px; color: var(--text-muted);">Upload your NEW vouchers export to add them to your available database stock.</p>
-                
-                <label>Voucher Price (₦):</label>
-                <input type="number" id="importPrice" value="300" />
-
-                <label>Select "New" Excel File:</label>
-                <input type="file" id="importFile" accept=".xlsx, .xls" />
-
-                <button id="importBtn" onclick="processExcelImport()">Import to Inventory</button>
-                <div id="importStatus" class="status-msg"></div>
-            </div>
-        </div>
-
-        <div id="view-sync" class="view-section">
-            <div class="card">
-                <h3 style="margin-top: 0;">2. Sync Sales & Used</h3>
-                <p style="font-size: 14px; color: var(--text-muted);">Select the agent, then upload the USED vouchers export. The system will mark them as sold and calculate today's revenue.</p>
-                
-                <label>Assign Sales To Agent:</label>
-                <select id="agentSelectDropdown">
-                    <option value="">-- Select an Agent --</option>
-                </select>
-
-                <label>Select "Used" Excel File:</label>
-                <input type="file" id="usedFile" accept=".xlsx, .xls" />
-
-                <button id="syncBtn" class="action-btn" onclick="processUsedImport()">Sync Sales Data</button>
-                <div id="syncStatus" class="status-msg"></div>
-            </div>
-        </div>
-
-        <div id="view-agents" class="view-section">
-            <div class="card">
-                <h3 style="margin-top: 0;">Add New Agent</h3>
-                <label>Agent Name:</label>
-                <input type="text" id="agentName" placeholder="e.g. Mustapha" />
-                <button onclick="addAgent()">Save Agent</button>
-                <div id="agentStatus" class="status-msg"></div>
-            </div>
-
-            <div class="card">
-                <h3 style="margin-top: 0;">Agent Roster</h3>
-                <ul class="list-group" id="agentList"></ul>
-            </div>
-        </div>
+    <div class="preview-box">
+        <canvas id="imageCanvas"></canvas>
     </div>
 
-    <div class="bottom-nav">
-        <div class="nav-item active" onclick="switchView('dashboard', 'Dashboard', this)">Dashboard</div>
-        <div class="nav-item" onclick="switchView('import', 'Stock Inventory', this)">Stock</div>
-        <div class="nav-item" onclick="switchView('sync', 'Sync Sales', this)">Sync</div>
-        <div class="nav-item" onclick="switchView('agents', 'Team & Agents', this)">Agents</div>
+    <div class="result-box">
+        <label style="font-weight: bold; display: block; margin-bottom: 5px;">Raw Text Extracted:</label>
+        <textarea id="resultText" placeholder="The AI's reading will appear here..."></textarea>
     </div>
+</div>
 
-    <script>
-        const db = new Dexie("MVMP_Database");
-        
-        db.version(1).stores({
-            vouchers: 'passcode, price, status, agentId, importedAt, usedAt',
-            agents: '++id, name, totalSales',
-            transactions: '++id, passcode, amount, agentId, date'
-        });
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const statusDiv = document.getElementById('status');
+    const canvas = document.getElementById('imageCanvas');
+    const ctx = canvas.getContext('2d');
+    const resultText = document.getElementById('resultText');
 
-        db.open().then(() => {
-            refreshDashboard();
-            loadAgents();
-        });
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-        function switchView(viewId, headerTitle, navElement) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.getElementById('view-' + viewId).classList.add('active');
-            document.getElementById('appHeader').innerText = headerTitle;
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            navElement.classList.add('active');
-            
-            if(viewId === 'sync') populateAgentDropdown();
-        }
+        resultText.value = "";
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        async function refreshDashboard() {
-            const availableCount = await db.vouchers.where('status').equals('Available').count();
-            const inUseCount = await db.vouchers.where('status').equals('In-Use').count();
-            const agentCount = await db.agents.count();
+        const fileName = file.name.toLowerCase();
 
-            // Calculate Today's Revenue
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            const startOfToday = today.getTime();
-
-            const todaysTransactions = await db.transactions
-                .where('date').aboveOrEqual(startOfToday)
-                .toArray();
-
-            let todayRevenue = 0;
-            todaysTransactions.forEach(tx => todayRevenue += tx.amount);
-
-            document.getElementById('stat-available').innerText = availableCount;
-            document.getElementById('stat-inuse').innerText = inUseCount;
-            document.getElementById('stat-agents').innerText = agentCount;
-            document.getElementById('stat-revenue-today').innerText = "₦" + todayRevenue.toLocaleString();
-        }
-
-        async function addAgent() {
-            const nameInput = document.getElementById('agentName');
-            const statusDiv = document.getElementById('agentStatus');
-            const name = nameInput.value.trim();
-
-            if (!name) return;
-
-            await db.agents.add({ name: name, totalSales: 0 });
-            nameInput.value = "";
-            statusDiv.innerText = "Agent saved!";
-            statusDiv.style.color = "var(--success)";
-            loadAgents();
-            refreshDashboard();
-            setTimeout(() => statusDiv.innerText = "", 3000);
-        }
-
-        async function loadAgents() {
-            const agentList = document.getElementById('agentList');
-            const agents = await db.agents.toArray();
-            
-            agentList.innerHTML = "";
-            agents.forEach(agent => {
-                const li = document.createElement('li');
-                li.className = 'list-item';
-                li.innerHTML = `
-                    <span style="font-weight:bold;">${agent.name}</span>
-                    <span style="color:var(--primary); font-weight:bold;">Sales: ₦${agent.totalSales.toLocaleString()}</span>
-                `;
-                agentList.appendChild(li);
-            });
-        }
-
-        async function populateAgentDropdown() {
-            const select = document.getElementById('agentSelectDropdown');
-            const agents = await db.agents.toArray();
-            
-            select.innerHTML = '<option value="">-- Select an Agent --</option>';
-            agents.forEach(agent => {
-                const option = document.createElement('option');
-                option.value = agent.id;
-                option.text = agent.name;
-                select.appendChild(option);
-            });
-        }
-
-        async function processExcelImport() {
-            const fileInput = document.getElementById('importFile');
-            const price = parseFloat(document.getElementById('importPrice').value) || 0;
-            const statusDiv = document.getElementById('importStatus');
-            
-            if (fileInput.files.length === 0) return;
-            statusDiv.innerText = "Processing New Inventory...";
-
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        if (fileName.endsWith('.xlsx')) {
+            statusDiv.innerText = "Extracting first image from Excel...";
+            try {
+                const zip = await JSZip.loadAsync(file);
+                const mediaFolder = zip.folder("xl/media");
                 
-                let count = 0;
-                for (let row of json) {
-                    const code = row['Password'] || row['Account'] || row['PIN'];
-                    if (code) {
-                        const codeString = String(code).trim();
-                        const exists = await db.vouchers.get(codeString);
-                        if (!exists) {
-                            await db.vouchers.add({
-                                passcode: codeString,
-                                price: price,
-                                status: 'Available',
-                                agentId: null,
-                                importedAt: new Date().getTime(),
-                                usedAt: null
-                            });
-                            count++;
-                        }
-                    }
+                if (!mediaFolder) {
+                    statusDiv.innerText = "Error: No media found in Excel.";
+                    return;
                 }
-                statusDiv.innerText = `Added ${count} new vouchers.`;
-                statusDiv.style.color = "var(--success)";
-                fileInput.value = "";
-                refreshDashboard();
-            };
-            reader.readAsArrayBuffer(fileInput.files[0]);
-        }
 
-        async function processUsedImport() {
-            const fileInput = document.getElementById('usedFile');
-            const agentId = parseInt(document.getElementById('agentSelectDropdown').value);
-            const statusDiv = document.getElementById('syncStatus');
-            
-            if (!agentId) {
-                statusDiv.innerText = "Error: Please select an Agent first.";
-                statusDiv.style.color = "red";
-                return;
+                const images = Object.keys(mediaFolder.files).filter(name => name.match(/\.(png|jpe?g)$/i));
+                if (images.length === 0) {
+                    statusDiv.innerText = "Error: No images found in Excel.";
+                    return;
+                }
+
+                const firstImageFile = mediaFolder.files[images[0]];
+                const blob = await firstImageFile.async("blob");
+                processImageForOCR(blob);
+
+            } catch (err) {
+                console.error(err);
+                statusDiv.innerText = "Failed to read Excel file.";
             }
-            if (fileInput.files.length === 0) return;
+        } else if (fileName.match(/\.(png|jpe?g)$/i)) {
+            // It is directly an image
+            processImageForOCR(file);
+        } else {
+            statusDiv.innerText = "Unsupported file type.";
+        }
+    });
+
+    function processImageForOCR(imageBlob) {
+        statusDiv.innerText = "Loading image to canvas...";
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(imageBlob);
+
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
             
-            statusDiv.innerText = "Syncing Sales Data...";
-            statusDiv.style.color = "var(--text-main)";
+            // Draw original image to canvas
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
 
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-                
-                let updateCount = 0;
-                let revenueAdded = 0;
-                const syncTime = new Date().getTime();
+            // Start OCR
+            runTesseract(canvas);
+        };
 
-                for (let row of json) {
-                    const code = row['Password'] || row['Account'] || row['PIN'];
-                    if (code) {
-                        const codeString = String(code).trim();
-                        const voucher = await db.vouchers.get(codeString);
-                        
-                        // If we have the voucher in our system and it is currently 'Available'
-                        if (voucher && voucher.status === 'Available') {
-                            
-                            // 1. Mark as In-Use
-                            await db.vouchers.update(codeString, {
-                                status: 'In-Use',
-                                agentId: agentId,
-                                usedAt: syncTime
-                            });
+        img.onerror = () => {
+            statusDiv.innerText = "Failed to load image.";
+        };
 
-                            // 2. Log Transaction for Dashboard Revenue
-                            await db.transactions.add({
-                                passcode: codeString,
-                                amount: voucher.price,
-                                agentId: agentId,
-                                date: syncTime
-                            });
+        img.src = objectUrl;
+    }
 
-                            revenueAdded += voucher.price;
-                            updateCount++;
-                        }
+    async function runTesseract(canvasElement) {
+        statusDiv.innerText = "Initializing Tesseract AI Engine (this may take a moment)...";
+        
+        try {
+            // Convert canvas to a Data URL to pass to Tesseract
+            const imageDataUrl = canvasElement.toDataURL("image/jpeg", 1.0);
+
+            const worker = await Tesseract.createWorker({
+                logger: m => {
+                    // Update progress live
+                    if (m.status === "recognizing text") {
+                        const percent = Math.round(m.progress * 100);
+                        statusDiv.innerText = `Scanning text... ${percent}%`;
+                    } else {
+                        statusDiv.innerText = m.status;
                     }
                 }
+            });
+            
+            await worker.loadLanguage('eng');
+            await worker.initialize('eng');
+            
+            statusDiv.innerText = "Scanning text... 0%";
+            const { data: { text } } = await worker.recognize(imageDataUrl);
+            
+            resultText.value = text;
+            statusDiv.innerText = "Scan Complete!";
+            
+            await worker.terminate();
 
-                // 3. Update the specific Agent's total sales
-                if (updateCount > 0) {
-                    const agent = await db.agents.get(agentId);
-                    await db.agents.update(agentId, {
-                        totalSales: agent.totalSales + revenueAdded
-                    });
-                }
-
-                statusDiv.innerText = `Successfully synced ${updateCount} sales to Agent!`;
-                statusDiv.style.color = "var(--success)";
-                fileInput.value = "";
-                refreshDashboard();
-                loadAgents();
-            };
-            reader.readAsArrayBuffer(fileInput.files[0]);
+        } catch (error) {
+            console.error(error);
+            statusDiv.innerText = "OCR Engine Failed.";
         }
-    </script>
+    }
+</script>
+
 </body>
 </html>
+ 
