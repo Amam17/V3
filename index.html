@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCR Voucher Test</title>
+    <title>OCR Voucher Test | Filtered</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
@@ -46,12 +46,25 @@
             min-height: 20px;
             word-break: break-word;
         }
-        .preview-box {
+        .canvas-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
             margin-top: 20px;
+        }
+        .canvas-box {
             border: 1px solid #ccc;
             border-radius: 8px;
             overflow: hidden;
             background: #eee;
+        }
+        .canvas-label {
+            background: #333;
+            color: white;
+            padding: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
         }
         canvas {
             display: block;
@@ -63,7 +76,7 @@
         }
         textarea {
             width: 100%;
-            height: 200px;
+            height: 150px;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 6px;
@@ -78,14 +91,21 @@
 
 <div class="container">
     <h2>Voucher OCR Tester</h2>
-    <p>Upload a Voucher Image (.jpg/.png) or an Excel File to test the AI text reader.</p>
+    <p>Upload a Voucher Image to test the High-Contrast AI filter.</p>
     
     <input type="file" id="fileInput" class="file-input" accept=".jpg, .jpeg, .png, .xlsx" />
     
     <div id="status">Waiting for file...</div>
 
-    <div class="preview-box">
-        <canvas id="imageCanvas"></canvas>
+    <div class="canvas-container">
+        <div class="canvas-box">
+            <div class="canvas-label">Original Image</div>
+            <canvas id="originalCanvas"></canvas>
+        </div>
+        <div class="canvas-box">
+            <div class="canvas-label">What the AI Sees (High Contrast)</div>
+            <canvas id="filteredCanvas"></canvas>
+        </div>
     </div>
 
     <div class="result-box">
@@ -97,8 +117,8 @@
 <script>
     const fileInput = document.getElementById('fileInput');
     const statusDiv = document.getElementById('status');
-    const canvas = document.getElementById('imageCanvas');
-    const ctx = canvas.getContext('2d');
+    const originalCanvas = document.getElementById('originalCanvas');
+    const filteredCanvas = document.getElementById('filteredCanvas');
     const resultText = document.getElementById('resultText');
 
     fileInput.addEventListener('change', async (e) => {
@@ -106,8 +126,7 @@
         if (!file) return;
 
         resultText.value = "";
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+        
         const fileName = file.name.toLowerCase();
 
         if (fileName.endsWith('.xlsx')) {
@@ -143,18 +162,50 @@
     });
 
     function processImageForOCR(imageBlob) {
-        statusDiv.innerText = "Loading image to canvas...";
+        statusDiv.innerText = "Applying High-Contrast Filter...";
         const img = new Image();
         const objectUrl = URL.createObjectURL(imageBlob);
 
         img.onload = () => {
             URL.revokeObjectURL(objectUrl);
             
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+            // Draw original
+            originalCanvas.width = img.width;
+            originalCanvas.height = img.height;
+            const origCtx = originalCanvas.getContext('2d');
+            origCtx.drawImage(img, 0, 0);
 
-            runTesseract(canvas);
+            // Apply Black & White Filter
+            filteredCanvas.width = img.width;
+            filteredCanvas.height = img.height;
+            const filtCtx = filteredCanvas.getContext('2d');
+            filtCtx.drawImage(img, 0, 0);
+
+            const imageData = filtCtx.getImageData(0, 0, filteredCanvas.width, filteredCanvas.height);
+            const data = imageData.data;
+
+            // Loop through every pixel to strip color and maximize contrast
+            const threshold = 130; // Anything brighter than this becomes white, darker becomes black
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i+1];
+                const b = data[i+2];
+                
+                // Calculate pixel brightness
+                const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+                
+                // Force to pure black or pure white
+                const color = brightness > threshold ? 255 : 0;
+                
+                data[i] = color;     // Red
+                data[i+1] = color;   // Green
+                data[i+2] = color;   // Blue
+            }
+            
+            filtCtx.putImageData(imageData, 0, 0);
+
+            // Run Tesseract on the filtered canvas
+            runTesseract(filteredCanvas);
         };
 
         img.onerror = () => {
@@ -165,12 +216,11 @@
     }
 
     async function runTesseract(canvasElement) {
-        statusDiv.innerText = "Connecting to AI Engine (downloading language file)...";
+        statusDiv.innerText = "Connecting to AI Engine...";
         
         try {
             const imageDataUrl = canvasElement.toDataURL("image/jpeg", 1.0);
 
-            // Using the simplified v5 syntax to prevent worker freezing
             const { data: { text } } = await Tesseract.recognize(
                 imageDataUrl,
                 'eng',
@@ -198,4 +248,3 @@
 
 </body>
 </html>
- 
